@@ -1,6 +1,8 @@
 import express from "express";
 import { MongoClient } from "mongodb";
 import "dotenv/config";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const app = express();
 
@@ -30,26 +32,129 @@ async function ConnectDB() {
 await ConnectDB();
 
 // Database Name and collection setup
-const dbName = "Contacts";
+const dbName = "Users";
 const db = client.db(dbName);
-const collection = db.collection("contacts");
+const collection = db.collection("users");
 
 // home get method
 app.get("/", function (req, res) {
   res.send("Hello World");
 });
 
-app.post('/',  async ()=>{
+app.post("/signup", async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    const existingUser = await collection.findOne({ email });
 
-})
+    if (existingUser) {
+      return res
+        .status(400)
+        .send("User already exists selecet another email id");
+    }
 
-app.put('/',  async ()=>{
+    //hash
 
-})
+    const saltRounds = parseInt(process.env.SALT);
 
-app.delete('/',  async ()=>{
+    const hashedPassword = bcrypt.hash(
+      password,
+      saltRounds,
+      async (err, hash) => {
+        if (err) throw err;
 
-})
+        const result = await collection.insertOne({
+          username,
+          email,
+          password: hash,
+        });
+
+        res.status(201).send("Successfully registered");
+      }
+    );
+  } catch (error) {
+    console.log(error);
+    res.send(error);
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await collection.findOne({ email });
+
+    if (!user) {
+      return res.status(404).send("User not found");
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+
+    if (match) {
+      const role = user.role;
+      let token;
+
+      switch (role) {
+        case "admin":
+          token = jwt.sign(
+            {
+              data: "admin data",
+            },
+            "adminSecret",
+            { expiresIn: "60s" }
+          );
+
+          break;
+
+        case "user":
+          token = jwt.sign(
+            {
+              data: "user data",
+            },
+            "userSecret",
+            { expiresIn: "60s" }
+          );
+
+          break;
+
+        default:
+          break;
+      }
+
+      res.send({ msg: "Logged in successfully", token });
+    } else {
+      return res.status(401).send("Invalid credentials");
+    }
+  } catch (error) {
+    console.log(error);
+    res.send(error);
+  }
+});
+
+app.get("/admin", async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    jwt.verify(token, "adminSecret", (err, decoded) => {
+      res.send(decoded.data)
+    });
+  } catch (error) {
+    console.log(error); 
+    res.send(error); 
+  }
+});
+
+app.get("/user", async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    jwt.verify(token, "userSecret", (err, decoded) => {
+      res.send(decoded.data)
+    });
+  } catch (error) {
+    console.log(error); 
+    res.send(error); 
+  }
+});
 
 //callback function to our app for feedback
 app.listen(PORT, () => {
