@@ -9,6 +9,19 @@ const app = express();
 // Middleware for parsing JSON request bodies
 app.use(express.json());
 
+//custom middleware for admin authentication
+
+function authenticateAdminToken(req, res, next) {
+  const token = req.headers["authorization"];
+
+  if (token == null) return res.sendStatus(401);
+
+  jwt.verify(token, process.env.ADMIN_SECRET, (err) => {
+    if (err) return res.send("admin middleware error: " + err.message);    
+    next();
+  });
+}
+
 const PORT = process.env.PORT || 3000;
 
 // Connection URL
@@ -43,7 +56,7 @@ app.get("/", function (req, res) {
 
 app.post("/signup", async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role } = req.body;
     const existingUser = await collection.findOne({ email });
 
     if (existingUser) {
@@ -66,6 +79,7 @@ app.post("/signup", async (req, res) => {
           username,
           email,
           password: hash,
+          role,
         });
 
         res.status(201).send("Successfully registered");
@@ -93,6 +107,8 @@ app.post("/login", async (req, res) => {
       const role = user.role;
       let token;
 
+      console.log(user)
+
       switch (role) {
         case "admin":
           token = jwt.sign(
@@ -100,7 +116,7 @@ app.post("/login", async (req, res) => {
               data: "admin data",
             },
             "adminSecret",
-            { expiresIn: "60s" }
+            { expiresIn: "1200s" }
           );
 
           break;
@@ -111,12 +127,13 @@ app.post("/login", async (req, res) => {
               data: "user data",
             },
             "userSecret",
-            { expiresIn: "60s" }
+            { expiresIn: "1200s" }
           );
 
           break;
 
         default:
+          token="not applicable - in default case"
           break;
       }
 
@@ -130,13 +147,16 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.get("/admin", async (req, res) => {
+app.get("/admin",authenticateAdminToken,async (req, res) => {
   try {
-    const { token } = req.body;
 
-    jwt.verify(token, "adminSecret", (err, decoded) => {
-      res.send(decoded.data)
-    });
+    //some admin data
+
+    const adminData = "admin secific data";
+
+    res.send(adminData);
+
+    
   } catch (error) {
     console.log(error); 
     res.send(error); 
@@ -155,6 +175,10 @@ app.get("/user", async (req, res) => {
     res.send(error); 
   }
 });
+
+//user routes
+
+//general routes
 
 //callback function to our app for feedback
 app.listen(PORT, () => {
