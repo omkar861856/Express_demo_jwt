@@ -3,6 +3,7 @@ import { MongoClient } from "mongodb";
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import cors from 'cors';
 
 const app = express();
 
