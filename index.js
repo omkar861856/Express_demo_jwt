@@ -12,7 +12,7 @@ app.use(express.json());
 
 // enabling cors
 
-app.use(cors("*"));
+app.use(cors());
 
 // eg: middleware for hashing passwords, etc.
 
