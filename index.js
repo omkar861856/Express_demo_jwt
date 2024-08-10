@@ -9,6 +9,12 @@ const app = express();
 // Middleware for parsing JSON request bodies
 app.use(express.json());
 
+// enabling cors
+
+app.use(cors("*"));
+
+// eg: middleware for hashing passwords, etc.
+
 //custom middleware for admin authentication
 
 function authenticateAdminToken(req, res, next) {
